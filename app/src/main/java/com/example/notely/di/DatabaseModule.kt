@@ -22,7 +22,7 @@ object DatabaseModule {
             context,
             NotelyDatabase::class.java,
             "notely.db",
-        ).build()
+        ).fallbackToDestructiveMigration(true).build()
 
     @Provides
     fun provideNoteDao(database: NotelyDatabase): NoteDao = database.noteDao()

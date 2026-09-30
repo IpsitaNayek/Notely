@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -24,10 +24,13 @@ import com.example.notely.ui.notes.DockItem
 import com.example.notely.ui.theme.NotelyTheme
 
 /**
- * Bottom dock bar — §6.
+ * Bottom dock bar with 4 items:
+ * - Home
+ * - Search
+ * - Audio Note (quick recording action)
+ * - Settings
  *
- * Pill-shaped container with 4 icon buttons.
- * The selected item gets a rounded highlight behind it.
+ * (Trash icon has been removed per requirements; Bin is a category tab)
  */
 @Composable
 fun BottomDock(
@@ -60,7 +63,7 @@ fun BottomDock(
                 val icon = when (item) {
                     DockItem.HOME -> Icons.Filled.Home
                     DockItem.SEARCH -> Icons.Filled.Search
-                    DockItem.TRASH -> Icons.Filled.Delete
+                    DockItem.AUDIO_NOTE -> Icons.Filled.Mic
                     DockItem.SETTINGS -> Icons.Filled.Settings
                 }
 

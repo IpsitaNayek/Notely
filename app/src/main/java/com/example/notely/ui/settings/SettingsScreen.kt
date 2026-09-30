@@ -77,9 +77,9 @@ fun SettingsContent(
         Spacer(Modifier.height(12.dp))
 
         val options = listOf(
-            null to "System default",
-            false to "Light",
-            true to "Dark",
+            null to "Device mode",
+            false to "Light mode",
+            true to "Dark mode",
         )
         Column(modifier = Modifier.selectableGroup()) {
             options.forEach { (value, label) ->

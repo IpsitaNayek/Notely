@@ -3,6 +3,7 @@ package com.example.notely.ui.notes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.notely.data.local.NoteEntity
+import com.example.notely.data.local.NoteType
 import com.example.notely.data.repository.NoteRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,6 +15,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -24,63 +27,74 @@ class NotesViewModel @Inject constructor(
 
     private val _searchQuery = MutableStateFlow("")
     private val _isSearchActive = MutableStateFlow(false)
-    private val _selectedChip = MutableStateFlow(NoteChip.ALL)
+    private val _selectedCategory = MutableStateFlow(NoteCategory.ALL)
     private val _selectedDockItem = MutableStateFlow(DockItem.HOME)
+    private val _noteForActions = MutableStateFlow<NoteEntity?>(null)
+    private val _showCreateChoiceDialog = MutableStateFlow(false)
+    private val _showAudioRecorderDialog = MutableStateFlow(false)
+    private val _showEmptyBinDialog = MutableStateFlow(false)
 
-    /** Notes filtered by search or chip, reactively. */
-    private val filteredNotes = combine(
+    /** Notes stream based on search query or active notes. */
+    private val notesStream = combine(
         _searchQuery,
-        _selectedChip,
         _selectedDockItem,
-    ) { query, chip, dock ->
-        Triple(query, chip, dock)
-    }.flatMapLatest { (query, chip, dock) ->
-        when (dock) {
-            DockItem.TRASH -> repository.observeTrashedNotes()
-            DockItem.SEARCH -> {
-                if (query.isBlank()) repository.observeActiveNotes()
-                else repository.search(query)
-            }
-            else -> {
-                if (query.isNotBlank()) {
-                    repository.search(query)
-                } else {
-                    repository.observeActiveNotes()
-                }
-            }
+    ) { query, dock ->
+        Pair(query, dock)
+    }.flatMapLatest { (query, dock) ->
+        if (dock == DockItem.SEARCH && query.isNotBlank()) {
+            repository.search(query)
+        } else if (query.isNotBlank()) {
+            repository.search(query)
+        } else {
+            repository.observeActiveNotes()
         }
     }
 
     val uiState: StateFlow<NotesUiState> = combine(
-        filteredNotes,
+        notesStream,
         repository.observeTrashedNotes(),
         repository.observeActiveNoteCount(),
         _searchQuery,
         _isSearchActive,
-        _selectedChip,
+        _selectedCategory,
         _selectedDockItem,
+        _noteForActions,
+        _showCreateChoiceDialog,
+        _showAudioRecorderDialog,
+        _showEmptyBinDialog,
     ) { values ->
         @Suppress("UNCHECKED_CAST")
-        val notes = values[0] as List<NoteEntity>
+        val activeNotes = values[0] as List<NoteEntity>
         @Suppress("UNCHECKED_CAST")
         val trashedNotes = values[1] as List<NoteEntity>
         val activeCount = values[2] as Int
         val query = values[3] as String
         val searchActive = values[4] as Boolean
-        val chip = values[5] as NoteChip
+        val category = values[5] as NoteCategory
         val dock = values[6] as DockItem
+        val actionNote = values[7] as NoteEntity?
+        val showChoice = values[8] as Boolean
+        val showAudio = values[9] as Boolean
+        val showEmptyBin = values[10] as Boolean
 
-        val chipFiltered = applyChipFilter(notes, chip)
+        val displayedNotes = when (category) {
+            NoteCategory.BIN -> trashedNotes
+            else -> applyCategoryFilter(activeNotes, category)
+        }
 
         NotesUiState(
-            notes = chipFiltered,
+            notes = displayedNotes,
             trashedNotes = trashedNotes,
             activeNoteCount = activeCount,
             searchQuery = query,
             isSearchActive = searchActive,
-            selectedChip = chip,
+            selectedCategory = category,
             selectedDockItem = dock,
             isLoading = false,
+            noteForActions = actionNote,
+            showCreateChoiceDialog = showChoice,
+            showAudioRecorderDialog = showAudio,
+            showEmptyBinDialog = showEmptyBin,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -99,47 +113,100 @@ class NotesViewModel @Inject constructor(
         if (!active) _searchQuery.update { "" }
     }
 
-    fun onChipSelected(chip: NoteChip) {
-        _selectedChip.update { chip }
+    fun onCategorySelected(category: NoteCategory) {
+        _selectedCategory.update { category }
     }
 
     fun onDockItemSelected(item: DockItem) {
+        if (item == DockItem.AUDIO_NOTE) {
+            _showAudioRecorderDialog.update { true }
+            return
+        }
         _selectedDockItem.update { item }
-        if (item != DockItem.SEARCH) {
+        if (item == DockItem.SEARCH) {
+            _isSearchActive.update { true }
+        } else {
             _isSearchActive.update { false }
             _searchQuery.update { "" }
-        } else {
-            _isSearchActive.update { true }
         }
     }
 
+    fun onShowNoteActions(note: NoteEntity?) {
+        _noteForActions.update { note }
+    }
+
+    fun onShowCreateChoice(show: Boolean) {
+        _showCreateChoiceDialog.update { show }
+    }
+
+    fun onShowAudioRecorder(show: Boolean) {
+        _showAudioRecorderDialog.update { show }
+    }
+
+    fun onShowEmptyBinDialog(show: Boolean) {
+        _showEmptyBinDialog.update { show }
+    }
+
     fun onMoveToTrash(noteId: String) {
-        viewModelScope.launch { repository.moveToTrash(noteId) }
+        viewModelScope.launch {
+            repository.moveToTrash(noteId)
+        }
     }
 
     fun onRestoreFromTrash(noteId: String) {
-        viewModelScope.launch { repository.restoreFromTrash(noteId) }
+        viewModelScope.launch {
+            repository.restoreFromTrash(noteId)
+        }
     }
 
     fun onTogglePin(noteId: String) {
-        viewModelScope.launch { repository.togglePin(noteId) }
+        viewModelScope.launch {
+            repository.togglePin(noteId)
+        }
+    }
+
+    fun onDeletePermanently(noteId: String) {
+        viewModelScope.launch {
+            repository.deleteNoteById(noteId)
+        }
     }
 
     fun onEmptyTrash() {
-        viewModelScope.launch { repository.emptyTrash() }
+        viewModelScope.launch {
+            repository.emptyTrash()
+            _showEmptyBinDialog.update { false }
+        }
     }
 
-    // ── Helpers ──
+    fun onSaveAudioNote(title: String, file: File, durationSec: Int) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val note = NoteEntity(
+                id = UUID.randomUUID().toString(),
+                title = title,
+                body = "Audio recording (${durationSec / 60}:${String.format("%02d", durationSec % 60)})",
+                colorId = 0,
+                isPinned = false,
+                isTrashed = false,
+                createdAt = now,
+                updatedAt = now,
+                noteType = NoteType.AUDIO.name,
+                audioPath = file.absolutePath,
+                audioDurationSec = durationSec,
+            )
+            repository.saveNote(note)
+        }
+    }
 
-    private fun applyChipFilter(notes: List<NoteEntity>, chip: NoteChip): List<NoteEntity> =
-        when (chip) {
-            NoteChip.ALL -> notes
-            NoteChip.PINNED -> notes.filter { it.isPinned }
-            NoteChip.TERRACOTTA -> notes.filter { it.colorId == 0 }
-            NoteChip.SAGE -> notes.filter { it.colorId == 1 }
-            NoteChip.DUSTY_BLUE -> notes.filter { it.colorId == 2 }
-            NoteChip.SAND -> notes.filter { it.colorId == 3 }
-            NoteChip.CLAY_ROSE -> notes.filter { it.colorId == 4 }
-            NoteChip.PLUM_TAUPE -> notes.filter { it.colorId == 5 }
+    // ── Helper ──
+
+    private fun applyCategoryFilter(notes: List<NoteEntity>, category: NoteCategory): List<NoteEntity> =
+        when (category) {
+            NoteCategory.ALL -> notes
+            NoteCategory.PINNED -> notes.filter { it.isPinned }
+            NoteCategory.TODO -> notes.filter { it.isTodoNote() }
+            NoteCategory.NOTES -> notes.filter { it.noteType == NoteType.NORMAL.name && !it.isTodoNote() && !it.isAudioNote() }
+            NoteCategory.AUDIO -> notes.filter { it.isAudioNote() }
+            NoteCategory.BIN -> emptyList() // Handled in combine
         }
 }

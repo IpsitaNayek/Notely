@@ -71,6 +71,10 @@ class DefaultNoteRepository @Inject constructor(
         noteDao.delete(note)
     }
 
+    override suspend fun deleteNoteById(noteId: String) = withContext(ioDispatcher) {
+        noteDao.deleteById(noteId)
+    }
+
     // ── Sync helpers ──
 
     override suspend fun getNoteById(noteId: String): NoteEntity? = withContext(ioDispatcher) {
