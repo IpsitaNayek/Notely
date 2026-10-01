@@ -1,6 +1,8 @@
 package com.example.notely.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.padding
@@ -14,16 +16,9 @@ import androidx.compose.ui.unit.dp
 import com.example.notely.ui.theme.NotelyTheme
 
 /**
- * Frosted-glass card — §10.7.
- *
- * A semi-transparent surface with a thin border, matching the Notely glass aesthetic.
- * Used as the base for note cards, search bar, and chips.
- *
- * @param fillColor Override the glass fill (e.g. note color). Defaults to [NotelyColors.glassFill].
- * @param borderColor Override the border color. Defaults to [NotelyColors.glassBorder].
- * @param shape Card shape. Defaults to [NotelyShapes.card].
- * @param contentPadding Inner padding. Defaults to [NotelySpacing.cardPadding].
+ * Frosted-glass card supporting both click and long-click gestures.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
@@ -32,6 +27,7 @@ fun GlassCard(
     shape: Shape = NotelyTheme.shapes.card,
     contentPadding: Dp = NotelyTheme.spacing.cardPadding,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Surface(
@@ -39,10 +35,21 @@ fun GlassCard(
         shape = shape,
         color = fillColor,
         border = BorderStroke(1.dp, borderColor),
-        onClick = onClick ?: {},
-        enabled = onClick != null,
     ) {
-        Box(modifier = Modifier.padding(contentPadding)) {
+        val clickModifier = if (onClick != null || onLongClick != null) {
+            Modifier.combinedClickable(
+                onClick = { onClick?.invoke() },
+                onLongClick = { onLongClick?.invoke() }
+            )
+        } else {
+            Modifier
+        }
+
+        Box(
+            modifier = Modifier
+                .then(clickModifier)
+                .padding(contentPadding)
+        ) {
             content()
         }
     }

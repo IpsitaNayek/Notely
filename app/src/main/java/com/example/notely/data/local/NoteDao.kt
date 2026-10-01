@@ -85,12 +85,16 @@ interface NoteDao {
     @Query("UPDATE notes SET syncStatus = 0 WHERE id = :noteId")
     suspend fun markSynced(noteId: String)
 
-    /** Full-text search across title and body. */
+    /** Hard-delete a single note by ID. */
+    @Query("DELETE FROM notes WHERE id = :noteId")
+    suspend fun deleteById(noteId: String)
+
+    /** Full-text search across title, body, and checklist content. */
     @Query(
         """
         SELECT * FROM notes 
         WHERE isTrashed = 0 
-          AND (title LIKE '%' || :query || '%' OR body LIKE '%' || :query || '%') 
+          AND (title LIKE '%' || :query || '%' OR body LIKE '%' || :query || '%' OR checklistJson LIKE '%' || :query || '%') 
         ORDER BY isPinned DESC, updatedAt DESC
         """
     )

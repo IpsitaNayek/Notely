@@ -12,14 +12,18 @@ import com.example.notely.ui.editor.EditorScreen
 import com.example.notely.ui.notes.NotesScreen
 
 /**
- * Navigation routes — exactly two destinations per §2.
+ * Navigation routes for Notely.
  */
 object NotelyRoutes {
     const val NOTES = "notes"
-    const val EDITOR_WITH_ARG = "editor?noteId={noteId}"
+    const val EDITOR_ROUTE = "editor?noteId={noteId}&type={type}"
 
-    fun editorRoute(noteId: String? = null): String =
-        if (noteId != null) "editor?noteId=$noteId" else "editor"
+    fun editorRoute(noteId: String? = null, type: String? = null): String {
+        val params = mutableListOf<String>()
+        if (noteId != null) params.add("noteId=$noteId")
+        if (type != null) params.add("type=$type")
+        return if (params.isNotEmpty()) "editor?${params.joinToString("&")}" else "editor"
+    }
 }
 
 @Composable
@@ -35,18 +39,23 @@ fun NotelyNavHost(
         composable(NotelyRoutes.NOTES) {
             NotesScreen(
                 onOpenNote = { noteId ->
-                    navController.navigate(NotelyRoutes.editorRoute(noteId))
+                    navController.navigate(NotelyRoutes.editorRoute(noteId = noteId))
                 },
-                onNewNote = {
-                    navController.navigate(NotelyRoutes.editorRoute())
+                onNewNote = { type ->
+                    navController.navigate(NotelyRoutes.editorRoute(type = type))
                 },
             )
         }
 
         composable(
-            route = NotelyRoutes.EDITOR_WITH_ARG,
+            route = NotelyRoutes.EDITOR_ROUTE,
             arguments = listOf(
                 navArgument("noteId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("type") {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null

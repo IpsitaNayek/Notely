@@ -49,6 +49,9 @@ interface NoteRepository {
     /** Hard-delete a single note. */
     suspend fun deleteNote(note: NoteEntity)
 
+    /** Hard-delete a note by ID. */
+    suspend fun deleteNoteById(noteId: String)
+
     // ── Sync helpers ──
 
     /** Get a note by ID (one-shot, for sync). */
