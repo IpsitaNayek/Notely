@@ -7,6 +7,7 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -109,7 +110,19 @@ class AudioPlayerManager(private val context: Context) {
                     }
                     return
                 }
-                player.setDataSource(file.absolutePath)
+                // Use FileProvider to get a content:// URI for internal storage files
+                // so MediaPlayer can access them reliably on Android 7+
+                try {
+                    val contentUri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        file,
+                    )
+                    player.setDataSource(context, contentUri)
+                } catch (_: Exception) {
+                    // Fallback to direct file path (works on some devices/versions)
+                    player.setDataSource(file.absolutePath)
+                }
             }
 
             player.setOnPreparedListener { mp ->
